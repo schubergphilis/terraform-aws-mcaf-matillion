@@ -47,7 +47,7 @@ EOF
 }
 
 resource "aws_iam_role_policy" "instance_role_policy" {
-  name = "MatillionRolePolicy"
+  name = "MatillionInstanceRolePolicy"
   role = aws_iam_role.instance_role.id
 
   policy = <<EOF
