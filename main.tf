@@ -476,7 +476,6 @@ resource "aws_lb" "default" {
   internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.0.id]
-  subnets            = var.subnet_ids
   tags               = merge(local.tags, var.tags)
 
   dynamic "subnet_mapping" {
