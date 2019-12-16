@@ -1,4 +1,7 @@
 locals {
+  create_alb_http_listener  = var.create_alb && var.alb_certificate_arn == null ? true : false
+  create_alb_https_listener = var.create_alb && var.alb_certificate_arn != null ? true : false
+
   tags = {
     MatillionType = "snowflake"
     Name          = "Matillion-ETL"
@@ -228,48 +231,50 @@ resource "aws_security_group" "instance" {
 }
 
 resource "aws_security_group_rule" "instance_http_in_cidrs" {
-  cidr_blocks       = ["10.0.0.0/16"]
+  count             = length(var.instance_http_in_cidrs) > 0 ? 1 : 0
+  cidr_blocks       = var.instance_http_in_cidrs
   from_port         = 80
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
+  to_port           = 80
   protocol          = "tcp"
   security_group_id = aws_security_group.instance.id
-  self              = false
-  to_port           = 80
+  type              = "ingress"
+}
+
+resource "aws_security_group_rule" "instance_https_in_cidrs" {
+  count             = length(var.instance_https_in_cidrs) > 0 ? 1 : 0
+  cidr_blocks       = var.instance_https_in_cidrs
+  from_port         = 443
+  to_port           = 443
+  protocol          = "tcp"
+  security_group_id = aws_security_group.instance.id
   type              = "ingress"
 }
 
 resource "aws_security_group_rule" "instance_http_in_alb" {
+  count                    = var.create_alb ? 1 : 0
   from_port                = 80
-  ipv6_cidr_blocks         = []
-  prefix_list_ids          = []
+  to_port                  = 80
   protocol                 = "tcp"
   security_group_id        = aws_security_group.instance.id
-  source_security_group_id = aws_security_group.alb.id
-  to_port                  = 80
+  source_security_group_id = aws_security_group.alb.0.id
   type                     = "ingress"
 }
 
 resource "aws_security_group_rule" "instance_5071_in_self" {
+  count             = var.instance_count > 1 ? 1 : 0
   from_port         = 5701
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
+  to_port           = 5701
   protocol          = "tcp"
   security_group_id = aws_security_group.instance.id
-  self              = true
-  to_port           = 5701
   type              = "ingress"
 }
 
 resource "aws_security_group_rule" "instance_all_out" {
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 0
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
+  to_port           = 0
   protocol          = "-1"
   security_group_id = aws_security_group.instance.id
-  self              = false
-  to_port           = 0
   type              = "egress"
 }
 
@@ -281,6 +286,7 @@ resource "aws_instance" "default" {
   instance_initiated_shutdown_behavior = var.shutdown_behavior
   subnet_id                            = element(var.subnet_ids, count.index)
   availability_zone                    = var.availability_zone
+  associate_public_ip_address          = var.create_alb ? false : true
   key_name                             = var.key_name
   monitoring                           = var.monitoring
   tags                                 = merge(local.tags, var.tags)
@@ -301,6 +307,7 @@ resource "aws_instance" "default" {
 // deploy RDS postgres instance
 
 resource "aws_security_group" "rds" {
+  count       = var.create_db_instance ? 1 : 0
   name_prefix = "MatillionPostgresSecurityGroup-"
   description = "MatillionPostgresSecurityGroup"
   vpc_id      = var.vpc_id
@@ -308,28 +315,22 @@ resource "aws_security_group" "rds" {
 }
 
 resource "aws_security_group_rule" "rds_postgres_in_cidr" {
-  cidr_blocks       = ["10.0.1.0/24"]
-  description       = "PostgreSQL"
-  from_port         = 5432
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
-  protocol          = "tcp"
-  security_group_id = aws_security_group.rds.id
-  self              = false
-  to_port           = 5432
-  type              = "ingress"
+  count                    = var.create_db_instance ? 1 : 0
+  from_port                = 5432
+  to_port                  = 5432
+  protocol                 = "tcp"
+  source_security_group_id = aws_security_group.instance.id
+  security_group_id        = aws_security_group.rds.0.id
+  type                     = "ingress"
 }
 
 resource "aws_security_group_rule" "rds_all_out" {
+  count             = var.create_db_instance ? 1 : 0
   cidr_blocks       = ["0.0.0.0/0"]
-  description       = "All protocols"
   from_port         = 0
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
-  protocol          = "-1"
-  security_group_id = aws_security_group.rds.id
-  self              = false
   to_port           = 0
+  protocol          = "-1"
+  security_group_id = aws_security_group.rds.0.id
   type              = "egress"
 }
 
@@ -343,6 +344,7 @@ module "db" {
   // RDS
   create_db_instance              = var.create_db_instance
   create_db_subnet_group          = var.create_db_subnet_group
+  create_db_parameter_group       = var.create_db_instance
   multi_az                        = var.db_multi_az
   identifier                      = "Matillion-RDS"
   availability_zone               = var.availability_zone
@@ -390,6 +392,7 @@ module "db" {
 // deploy ALB
 
 resource "aws_lb_target_group" "http" {
+  count       = var.create_alb ? 1 : 0
   name        = "Matillion-HTTP"
   port        = "80"
   protocol    = "HTTP"
@@ -414,12 +417,13 @@ resource "aws_lb_target_group" "http" {
 }
 
 resource "aws_lb_target_group_attachment" "instance" {
-  count            = var.instance_count
-  target_group_arn = aws_lb_target_group.http.arn
+  count            = var.create_alb ? var.instance_count : 0
+  target_group_arn = aws_lb_target_group.http.0.arn
   target_id        = element(aws_instance.default.*.id, count.index)
 }
 
 resource "aws_security_group" "alb" {
+  count       = var.create_alb ? 1 : 0
   name_prefix = "MatillionALBSecurityGroup-"
   description = "MatillionALBSecurityGroup"
   vpc_id      = var.vpc_id
@@ -427,55 +431,88 @@ resource "aws_security_group" "alb" {
 }
 
 resource "aws_security_group_rule" "alb_http_in" {
+  count             = var.create_alb ? 1 : 0
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 80
+  to_port           = 80
   ipv6_cidr_blocks  = []
   prefix_list_ids   = []
   protocol          = "tcp"
-  security_group_id = aws_security_group.alb.id
-  self              = false
-  to_port           = 80
+  security_group_id = aws_security_group.alb.0.id
   type              = "ingress"
 }
 
 resource "aws_security_group_rule" "alb_https_in" {
+  count             = var.create_alb ? 1 : 0
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 443
+  to_port           = 443
   ipv6_cidr_blocks  = []
   prefix_list_ids   = []
   protocol          = "tcp"
-  security_group_id = aws_security_group.alb.id
-  self              = false
-  to_port           = 443
+  security_group_id = aws_security_group.alb.0.id
   type              = "ingress"
 }
 
 resource "aws_security_group_rule" "alb_all_out" {
+  count             = var.create_alb ? 1 : 0
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 0
+  to_port           = 0
   ipv6_cidr_blocks  = []
   prefix_list_ids   = []
   protocol          = "-1"
-  security_group_id = aws_security_group.alb.id
-  self              = false
-  to_port           = 0
+  security_group_id = aws_security_group.alb.0.id
   type              = "egress"
 }
 
 resource "aws_lb" "default" {
+  count              = var.create_alb ? 1 : 0
   load_balancer_type = "application"
-  security_groups    = [aws_security_group.alb.id]
+  security_groups    = [aws_security_group.alb.0.id]
   subnets            = var.subnet_ids
   tags               = merge(local.tags, var.tags)
 }
 
 resource "aws_lb_listener" "http" {
-  load_balancer_arn = aws_lb.default.arn
+  count             = local.create_alb_http_listener ? 1 : 0
+  load_balancer_arn = aws_lb.default.0.arn
   port              = 80
   protocol          = "HTTP"
 
   default_action {
-    target_group_arn = aws_lb_target_group.http.arn
+    target_group_arn = aws_lb_target_group.http.0.arn
+    type             = "forward"
+  }
+}
+
+resource "aws_lb_listener" "http_redirect" {
+  count             = local.create_alb_https_listener ? 1 : 0
+  load_balancer_arn = aws_lb.default.0.arn
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type = "redirect"
+
+    redirect {
+      port        = "443"
+      protocol    = "HTTPS"
+      status_code = "HTTP_301"
+    }
+  }
+}
+
+resource "aws_lb_listener" "https" {
+  count             = local.create_alb_https_listener ? 1 : 0
+  load_balancer_arn = aws_lb.default.0.arn
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = var.alb_ssl_policy
+  certificate_arn   = var.alb_certificate_arn
+
+  default_action {
+    target_group_arn = aws_lb_target_group.http.0.arn
     type             = "forward"
   }
 }

@@ -27,7 +27,19 @@ variable "tags" {
 variable "instance_type" {
   type        = string
   description = "AWS instance type"
-  default     = "m5.large"
+  default     = "t2.medium"
+}
+
+variable "instance_http_in_cidrs" {
+  type        = list(string)
+  description = "A list of CIDRs allowing HTTP access to the Matillion instance(s)"
+  default     = []
+}
+
+variable "instance_https_in_cidrs" {
+  type        = list(string)
+  description = "A list of CIDRs allowing HTTPS access to the Matillion instance(s)"
+  default     = []
 }
 
 variable "key_name" {
@@ -81,7 +93,7 @@ variable "subnet_ids" {
 variable "create_db_instance" {
   type        = bool
   description = "Set to true to create a postgresql RDS instance"
-  default     = true
+  default     = false
 }
 
 variable "create_db_subnet_group" {
@@ -159,4 +171,25 @@ variable "db_password" {
 variable "db_subnet_ids" {
   type        = list(string)
   description = "Database subnet IDs"
+  default     = []
+}
+
+// alb variables
+
+variable "create_alb" {
+  type        = bool
+  description = "Set to true to create an Application Load Balancer"
+  default     = false
+}
+
+variable "alb_certificate_arn" {
+  type        = string
+  description = "Certificate ARN to apply to HTTPS listener"
+  default     = null
+}
+
+variable "alb_ssl_policy" {
+  type        = string
+  description = "ALB SSL Policy"
+  default     = "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
 }
