@@ -466,12 +466,27 @@ resource "aws_security_group_rule" "alb_all_out" {
   type              = "egress"
 }
 
+resource "aws_eip" "default" {
+  count = var.create_alb ? length(var.subnet_ids) : 0
+  vpc   = true
+}
+
 resource "aws_lb" "default" {
   count              = var.create_alb ? 1 : 0
+  internal           = false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.0.id]
   subnets            = var.subnet_ids
   tags               = merge(local.tags, var.tags)
+
+  dynamic "subnet_mapping" {
+    for_each = var.subnet_ids
+
+    content {
+      subnet_id     = subnet_mapping.value
+      allocation_id = aws_eip.default[subnet_mapping.key].allocation_id
+    }
+  }
 }
 
 resource "aws_lb_listener" "http" {
