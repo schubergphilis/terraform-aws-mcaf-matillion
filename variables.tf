@@ -1,8 +1,8 @@
 // common variables
 
-variable "availability_zone" {
-  type        = string
-  description = "Availability zone to deploy in"
+variable "availability_zones" {
+  type        = list(string)
+  description = "Availability zones to deploy in"
 }
 
 variable "vpc_id" {

@@ -285,7 +285,7 @@ resource "aws_instance" "default" {
   iam_instance_profile                 = aws_iam_instance_profile.default.name
   instance_initiated_shutdown_behavior = var.shutdown_behavior
   subnet_id                            = element(var.subnet_ids, count.index)
-  availability_zone                    = var.availability_zone
+  availability_zone                    = element(var.availability_zones, count.index)
   associate_public_ip_address          = var.create_alb ? false : true
   key_name                             = var.key_name
   monitoring                           = var.monitoring
@@ -347,7 +347,7 @@ module "db" {
   create_db_parameter_group       = var.create_db_instance
   multi_az                        = var.db_multi_az
   identifier                      = "Matillion-RDS"
-  availability_zone               = var.availability_zone
+  availability_zone               = var.availability_zones[0]
   engine                          = "postgres"
   engine_version                  = var.db_engine_version
   instance_class                  = var.db_instance_class
