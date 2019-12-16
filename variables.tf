@@ -5,12 +5,6 @@ variable "availability_zone" {
   description = "Availability zone to deploy in"
 }
 
-variable "instance_count" {
-  type        = number
-  description = "Number of Matillion instances to deploy"
-  default     = 1
-}
-
 variable "vpc_id" {
   type        = string
   description = "VPC ID"
@@ -85,7 +79,7 @@ variable "vpc_security_group_ids" {
 
 variable "subnet_ids" {
   type        = list(string)
-  description = "VPC subnet to deploy instance to"
+  description = "VPC subnet IDs to deploy instance(s) to"
 }
 
 // rds variables
