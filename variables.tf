@@ -5,6 +5,12 @@ variable "availability_zones" {
   description = "Availability zones to deploy in"
 }
 
+variable "instance_count" {
+  type        = number
+  description = "Number of Matillion instances to deploy"
+  default     = 1
+}
+
 variable "vpc_id" {
   type        = string
   description = "VPC ID"

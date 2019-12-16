@@ -261,7 +261,7 @@ resource "aws_security_group_rule" "instance_http_in_alb" {
 }
 
 resource "aws_security_group_rule" "instance_5071_in_self" {
-  count             = length(var.subnet_ids) > 1 ? 1 : 0
+  count             = var.instance_count > 1 ? 1 : 0
   from_port         = 5701
   to_port           = 5701
   protocol          = "tcp"
@@ -279,7 +279,7 @@ resource "aws_security_group_rule" "instance_all_out" {
 }
 
 resource "aws_instance" "default" {
-  count                                = length(var.subnet_ids)
+  count                                = var.instance_count
   ami                                  = data.aws_ami.snowflake.id
   instance_type                        = var.instance_type
   iam_instance_profile                 = aws_iam_instance_profile.default.name
@@ -417,7 +417,7 @@ resource "aws_lb_target_group" "http" {
 }
 
 resource "aws_lb_target_group_attachment" "instance" {
-  count            = var.create_alb ? length(var.subnet_ids) : 0
+  count            = var.create_alb ? var.instance_count : 0
   target_group_arn = aws_lb_target_group.http.0.arn
   target_id        = element(aws_instance.default.*.id, count.index)
 }
