@@ -483,7 +483,7 @@ resource "aws_lb" "default" {
 
     content {
       subnet_id     = subnet_mapping.value
-      allocation_id = aws_eip.default[subnet_mapping.key].allocation_id
+      allocation_id = aws_eip.default[subnet_mapping.key].id
     }
   }
 }
