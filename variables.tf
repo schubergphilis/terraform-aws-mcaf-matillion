@@ -188,8 +188,22 @@ variable "alb_certificate_arn" {
   default     = null
 }
 
+variable "alb_http_in_cidrs" {
+  type        = list(string)
+  description = "CIDRs allowed to access the ALB via HTTP and HTTPS"
+  default     = []
+}
+
 variable "alb_ssl_policy" {
   type        = string
   description = "ALB SSL Policy"
   default     = "ELBSecurityPolicy-TLS-1-2-Ext-2018-06"
+}
+
+// global accelerator variables
+
+variable "create_global_accelerator" {
+  type        = bool
+  description = "Set to true to create a Global Accelerator"
+  default     = false
 }

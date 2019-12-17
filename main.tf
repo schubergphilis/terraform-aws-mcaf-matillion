@@ -432,23 +432,19 @@ resource "aws_security_group" "alb" {
 
 resource "aws_security_group_rule" "alb_http_in" {
   count             = var.create_alb ? 1 : 0
-  cidr_blocks       = ["0.0.0.0/0"]
+  cidr_blocks       = var.alb_http_in_cidrs
   from_port         = 80
   to_port           = 80
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
   protocol          = "tcp"
   security_group_id = aws_security_group.alb.0.id
   type              = "ingress"
 }
 
 resource "aws_security_group_rule" "alb_https_in" {
-  count             = var.create_alb ? 1 : 0
-  cidr_blocks       = ["0.0.0.0/0"]
+  count             = local.create_alb_https_listener ? 1 : 0
+  cidr_blocks       = var.alb_http_in_cidrs
   from_port         = 443
   to_port           = 443
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
   protocol          = "tcp"
   security_group_id = aws_security_group.alb.0.id
   type              = "ingress"
@@ -459,60 +455,39 @@ resource "aws_security_group_rule" "alb_all_out" {
   cidr_blocks       = ["0.0.0.0/0"]
   from_port         = 0
   to_port           = 0
-  ipv6_cidr_blocks  = []
-  prefix_list_ids   = []
   protocol          = "-1"
   security_group_id = aws_security_group.alb.0.id
   type              = "egress"
 }
 
-resource "aws_eip" "default" {
-  count = var.create_alb ? length(var.subnet_ids) : 0
-  vpc   = true
-}
-
 resource "aws_lb" "default" {
   count              = var.create_alb ? 1 : 0
-  internal           = false
+  name               = "Matillion"
+  internal           = var.create_global_accelerator ? true : false
   load_balancer_type = "application"
   security_groups    = [aws_security_group.alb.0.id]
+  subnets            = var.subnet_ids
   tags               = merge(local.tags, var.tags)
-
-  dynamic "subnet_mapping" {
-    for_each = var.subnet_ids
-
-    content {
-      subnet_id     = subnet_mapping.value
-      allocation_id = aws_eip.default[subnet_mapping.key].id
-    }
-  }
 }
 
 resource "aws_lb_listener" "http" {
-  count             = local.create_alb_http_listener ? 1 : 0
+  count             = var.create_alb ? 1 : 0
   load_balancer_arn = aws_lb.default.0.arn
   port              = 80
   protocol          = "HTTP"
 
-  default_action {
-    target_group_arn = aws_lb_target_group.http.0.arn
-    type             = "forward"
-  }
-}
+  dynamic "default_action" {
+    for_each = var.create_alb ? [1] : []
 
-resource "aws_lb_listener" "http_redirect" {
-  count             = local.create_alb_https_listener ? 1 : 0
-  load_balancer_arn = aws_lb.default.0.arn
-  port              = "80"
-  protocol          = "HTTP"
+    content {
+      type             = local.create_alb_http_listener ? "forward" : "redirect"
+      target_group_arn = local.create_alb_http_listener ? aws_lb_target_group.http.0.arn : null
 
-  default_action {
-    type = "redirect"
-
-    redirect {
-      port        = "443"
-      protocol    = "HTTPS"
-      status_code = "HTTP_301"
+      redirect {
+        port        = "443"
+        protocol    = "HTTPS"
+        status_code = "HTTP_301"
+      }
     }
   }
 }
@@ -528,5 +503,39 @@ resource "aws_lb_listener" "https" {
   default_action {
     target_group_arn = aws_lb_target_group.http.0.arn
     type             = "forward"
+  }
+}
+
+resource "aws_globalaccelerator_accelerator" "default" {
+  count           = var.create_global_accelerator && var.create_alb ? 1 : 0
+  name            = "Matillion"
+  ip_address_type = "IPV4"
+  enabled         = true
+}
+
+resource "aws_globalaccelerator_listener" "default" {
+  count           = var.create_global_accelerator && var.create_alb ? 1 : 0
+  accelerator_arn = aws_globalaccelerator_accelerator.default.0.id
+  protocol        = "TCP"
+
+  port_range {
+    from_port = 80
+    to_port   = 80
+  }
+
+  port_range {
+    from_port = 443
+    to_port   = 443
+  }
+}
+
+resource "aws_globalaccelerator_endpoint_group" "default" {
+  count             = var.create_global_accelerator && var.create_alb ? 1 : 0
+  health_check_port = 80
+  listener_arn      = aws_globalaccelerator_listener.default.0.id
+
+  endpoint_configuration {
+    endpoint_id = aws_lb.default.0.arn
+    weight      = 100
   }
 }
