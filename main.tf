@@ -286,7 +286,7 @@ resource "aws_instance" "default" {
   instance_initiated_shutdown_behavior = var.shutdown_behavior
   subnet_id                            = element(var.subnet_ids, count.index)
   availability_zone                    = element(var.availability_zones, count.index)
-  associate_public_ip_address          = var.create_alb ? false : true
+  associate_public_ip_address          = var.associate_public_ip_address
   key_name                             = var.key_name
   monitoring                           = var.monitoring
   tags                                 = merge(local.tags, var.tags)

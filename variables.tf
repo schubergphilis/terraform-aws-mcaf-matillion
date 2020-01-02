@@ -24,6 +24,12 @@ variable "tags" {
 
 // instance variables
 
+variable "associate_public_ip_address" {
+  type        = bool
+  description = "Set to false to disable the use of a public IP address"
+  default     = true
+}
+
 variable "instance_type" {
   type        = string
   description = "AWS instance type"
