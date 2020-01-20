@@ -216,6 +216,12 @@ variable "instance_role_policy" {
 POLICY
 }
 
+variable "kms_key_id" {
+  type        = string
+  description = "ID of the KMS key to use to encrypt the EBS volume"
+  default     = "alias/aws/ebs"
+}
+
 variable "key_name" {
   type        = string
   description = "Name of the key pair to use"

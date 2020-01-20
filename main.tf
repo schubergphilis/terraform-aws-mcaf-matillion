@@ -30,6 +30,10 @@ data "aws_ami" "snowflake" {
   }
 }
 
+data "aws_kms_key" "default" {
+  key_id = var.kms_key_id
+}
+
 resource "aws_iam_role" "instance_role" {
   name = "MatillionRole"
 
@@ -134,6 +138,7 @@ resource "aws_instance" "default" {
     volume_type           = var.root_volume_type
     volume_size           = var.root_volume_size
     delete_on_termination = var.root_volume_delete_on_termination
+    kms_key_id            = data.aws_kms_key.default.arn
   }
 
   lifecycle {
