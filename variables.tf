@@ -30,6 +30,12 @@ variable "associate_public_ip_address" {
   default     = true
 }
 
+variable "enable_ssm_managed_instance" {
+  type        = bool
+  description = "Set to true attach the AWS managed AmazonSSMManagedInstanceCore policy to the Matillion role"
+  default     = false
+}
+
 variable "instance_type" {
   type        = string
   description = "AWS instance type"
