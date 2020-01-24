@@ -53,6 +53,12 @@ resource "aws_iam_role" "instance_role" {
 EOF
 }
 
+resource "aws_iam_role_policy_attachment" "ssm_managed_instance_core" {
+  count      = var.enable_ssm_managed_instance ? 1 : 0
+  role       = aws_iam_role.instance_role.id
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSSMManagedInstanceCore"
+}
+
 resource "aws_iam_role_policy" "instance_role_policy" {
   name   = "MatillionInstanceRolePolicy"
   role   = aws_iam_role.instance_role.id
