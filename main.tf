@@ -387,4 +387,11 @@ resource "aws_globalaccelerator_endpoint_group" "default" {
     endpoint_id = aws_lb.default.0.arn
     weight      = 100
   }
+
+  lifecycle {
+    ignore_changes = [
+      health_check_path
+    ]
+  }
 }
+
